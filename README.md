@@ -1,4 +1,7 @@
 Futerało Pokrywacz Profilem - Instrukcja Instalacji
+---------------------------------------------------
+
+Wersja: 0.0.5 beta
 
 ```bash
 # install prerequisites
