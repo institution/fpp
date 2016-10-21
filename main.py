@@ -130,7 +130,7 @@ def read_poly_from_svg_path(root, name, tolerance):
 
 
 TOLERANCE_MM = 0.1
-STEP_MM = 1.0
+STEP_MM = 10.0
 
 
 def show(point_obrys, point_profil, value_mm):
@@ -218,8 +218,6 @@ def main():
 	
 	
 	pos = 0.0
-	end = obrys.get_length()
-	
 	
 	cross_poczatek = read_poly_from_svg_path(root, 'poczatek', tolerance)
 	if cross_poczatek != None:
@@ -227,20 +225,21 @@ def main():
 		ths = intersect_poly_poly(obrys, cross_poczatek)
 		if len(ths) != 1:
 			fail("ERROR: poczatek nie przecina obrysu w dokladnie 1 punkcie")
-					
-		t,_ = ths[0]
-		pos = t
+		else:		
+			t,_ = ths[0]
+			pos = t
+	
+	end = pos
 			
 	cross_koniec = read_poly_from_svg_path(root, 'koniec', tolerance)
 	if cross_koniec != None:
 		info("przecinam koniec z obrysem")
 		ths = intersect_poly_poly(obrys, cross_koniec)
 		if len(ths) != 1:
-			fail("ERROR: koniec nie przecina obrysu w dokladnie 1 punkcie")
-			
-		t,_ = ths[0]
-		end = t
-
+			warning("ERROR: koniec nie przecina obrysu w dokladnie 1 punkcie")
+		else:
+			t,_ = ths[0]
+			end = t
 
 	if pos < end:
 		delta = end - pos
@@ -282,8 +281,8 @@ def main():
 		# print("total,delta = {:.1f},{:.1f}".format(total*to_mm,delta*to_mm))
 				
 		value = calc_value(pos, obrys, profil, odcinek, to_mm)		
-		print("OUTPUT: {:6.1f} {:6.1f} [mm] {:6.1f} {:6.1f} [u]".format(pos*to_mm, value*to_mm, pos, value))
-		rs.append((pos, value))
+		print("OUTPUT: {:6.1f} {:6.1f} [mm] {:6.1f} {:6.1f} [u]".format(total*to_mm, value*to_mm, pos, value))
+		rs.append((total, value))
 		
 		
 		pos += step
@@ -294,10 +293,11 @@ def main():
 		total += step
 		
 	# value at the end
+	total = delta
 	pos = end
 	value = calc_value(pos, obrys, profil, odcinek, to_mm)		
-	print("OUTPUT: {:6.1f} {:6.1f} [mm] {:6.1f} {:6.1f} [u]".format(pos*to_mm, value*to_mm, pos, value))
-	rs.append((pos, value))
+	print("OUTPUT: {:6.1f} {:6.1f} [mm] {:6.1f} {:6.1f} [u]".format(total*to_mm, value*to_mm, pos, value))
+	rs.append((total, value))
 	
 		
 			
