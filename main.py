@@ -8,6 +8,20 @@ from log import fail, info, warning
 from reader import Reader
 import math
 
+
+
+"""
+Note on units: every variable stores value in [u] (unless postfix _mm), use mm_to and to_mm for input, output
+"""
+
+# TODO: add scale 1cm x 1cm box to output
+# TODO: print ruler with values to output
+# TODO: thinner line in output
+# TODO: Alert on negative values on the profil?
+
+
+
+
 #width="{width}"
 #height="{height}"
 OUTPUT_TEMPLATE = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
@@ -43,24 +57,27 @@ OUTPUT_TEMPLATE = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 """
 
 def save_output_svg(ps, oname, to_mm):
+	assert len(ps) > 0
 	
 	max_y = 0
-	max_x = 0
 	for x,y in ps:
-		if x > max_x:
-			max_x = x
 		if y > max_y:
 			max_y = y
-			
-	vb = (0,0,max_x,max_y)
 	
-	w = max_x
+	max_x = ps[-1][0]
+	min_x = ps[ 0][0]
+	
+	w = max_x - min_x
 	h = max_y
+				
+	vb = (min_x,0,w,h)
+	
+	
 	
 	ps.append((max_x,0))
-	ps.append((0,0))
+	ps.append((min_x,0))
 	
-	path = "M 0,0 " + " ".join("{:.6f},{:.6f}".format(*p) for p in ps)
+	path = "M {:.6f},{:.6f} ".format(min_x,0) + " ".join("{:.6f},{:.6f}".format(*p) for p in ps)
 	
 	with open("output.svg", 'wb') as f:
 		f.write(
@@ -83,9 +100,7 @@ def get_conversion_mm(vb, w_mm, h_mm):
 	"""
 	return -- to_mm, mm_to
 	"""
-	x0,y0,x1,y1 = vb
-	dx = x1 - x0
-	dy = y1 - y0
+	x0,y0,dx,dy = vb
 	
 	to_mmx = w_mm/dx
 	to_mmy = h_mm/dy
@@ -112,16 +127,55 @@ def read_poly_from_svg_path(root, name, tolerance):
 
 
 
-"""
-Note on units: every variable stores value in [u], use mm_to and to_mm for input, output
-"""
-
-
-# TODO: Alert on negative values on the wall?
 
 
 TOLERANCE_MM = 0.1
 STEP_MM = 1.0
+
+
+def show(point_obrys, point_profil, value_mm):
+	vis1, = Bezier1(point_obrys, point_profil).render(plt)		
+	vis2 = plt.text(
+		x=point_profil[0] + 15, 
+		y=point_profil[1], 
+		s="{:.1f}mm".format(value_mm),
+		verticalalignment='center',
+		backgroundcolor='white',
+		#bbox=dict(facecolor='white', alpha=0.8),
+		#size=12
+	)
+	
+	plt.show()
+	plt.pause(0.001)
+	vis1.remove()
+	vis2.remove()
+
+
+def calc_value(pos, obrys, profil, odcinek, to_mm):
+	odcinek_dir = odcinek.get_dir()
+	ort_odcinek = Vec(odcinek_dir[1], -odcinek_dir[0])
+	
+	point_obrys = obrys.get_point(pos)
+	
+	point_odcinek = project(point = point_obrys, line = odcinek)
+	
+	orto_line = Line(point_odcinek, point_odcinek + ort_odcinek)
+	
+	ths = intersect_poly_line(poly = profil, line = orto_line)
+	if len(ths) == 1:
+		t,h = ths[0]
+		point_profil = profil.get_point(t)
+	else:
+		fail('ERROR: unique intersection point of profil and orto_line is undefined')
+			
+	value = distance(point_odcinek, point_profil)
+	
+	show(point_obrys, point_profil, value * to_mm)
+	
+	return value
+
+
+
 
 def main():
 	
@@ -161,102 +215,92 @@ def main():
 	if obrys == None:
 		fail("ERROR: brak obrysu na rysunku")
 		
-	"""		
+	
+	
+	pos = 0.0
+	end = obrys.get_length()
+	
+	
 	cross_poczatek = read_poly_from_svg_path(root, 'poczatek', tolerance)
-	if cross_poczatek == None:
-		poczatek = 0.0
-	else:
+	if cross_poczatek != None:
 		info("przecinam poczatek z obrysem")
-		r,t,_ = intersect(obrys, poczatek)
-		if r != 1:
+		ths = intersect_poly_poly(obrys, cross_poczatek)
+		if len(ths) != 1:
 			fail("ERROR: poczatek nie przecina obrysu w dokladnie 1 punkcie")
-		poczatek = t
-		
-	info("punkt poczatku na obrysie: {}".format(poczatek))
-	
-	
+					
+		t,_ = ths[0]
+		pos = t
+			
 	cross_koniec = read_poly_from_svg_path(root, 'koniec', tolerance)
-	if cross_koniec == None:
-		koniec = obrys.get_length()
-	else:
+	if cross_koniec != None:
 		info("przecinam koniec z obrysem")
-		r,t,_ = intersect(obrys, koniec)
-		if r != 1:
+		ths = intersect_poly_poly(obrys, cross_koniec)
+		if len(ths) != 1:
 			fail("ERROR: koniec nie przecina obrysu w dokladnie 1 punkcie")
-		koniec = t
-	"""
+			
+		t,_ = ths[0]
+		end = t
+
+
+	if pos < end:
+		delta = end - pos
+	else:
+		delta = obrys.get_length() - (pos - end)
 		
-	
-	
-	
-	
+	assert delta > 0
+	assert delta <= obrys.get_length()
+		
 	odcinek = Line(
 		profil.get_point(0),
 		profil.get_point(profil.get_length()),
 	)
 	
-	
-	
-	print(profil.get_length(), profil.get_point(profil.get_length()))
-	
-	odcinek_dir = odcinek.get_dir()
-	ort_odcinek = Vec(odcinek_dir[1], -odcinek_dir[0])
+
 	
 	
 	# setup view
 	plt.ion()
 	plt.show()
-	plt.axis([vb[0], vb[2], vb[1], vb[3]])
+	plt.axis([vb[0], vb[0]+vb[2], vb[1], vb[1]+vb[3]])
 			
 	profil.render(plt)
 	obrys.render(plt)
 	odcinek.render(plt)
+	if cross_poczatek:
+		cross_poczatek.render(plt)
+	if cross_koniec:
+		cross_koniec.render(plt)
 
-	vis1 = None
-	vis2 = None
-	
 	rs = []
 	
-	pos = 0.0
-	end = obrys.get_length()
+	step = STEP_MM * mm_to
+	total = 0.0
 	
-	while pos <= end:
-		point_obrys = obrys.get_point(pos)
-		
-		point_odcinek = project(point = point_obrys, line = odcinek)
-		
-		orto_line = Line(point_odcinek, point_odcinek + ort_odcinek)
-		
-		ths = intersect_poly_line(poly = profil, line = orto_line)
-		if len(ths) == 1:
-			t,h = ths[0]
-			point_profil = profil.get_point(t)
-		else:
-			fail('ERROR: unique intersection point of profil and orto_line is undefined')
-		
-		
-		value = distance(point_odcinek, point_profil)
+	while total < delta:
+	
+		# print("pos,end = {:.1f},{:.1f}".format(pos*to_mm,end*to_mm))
+		# print("total,delta = {:.1f},{:.1f}".format(total*to_mm,delta*to_mm))
+				
+		value = calc_value(pos, obrys, profil, odcinek, to_mm)		
 		print("OUTPUT: {:6.1f} {:6.1f} [mm] {:6.1f} {:6.1f} [u]".format(pos*to_mm, value*to_mm, pos, value))
 		rs.append((pos, value))
 		
-		vis1, = Bezier1(point_obrys, point_profil).render(plt)
 		
-		vis2 = plt.text(
-			x=point_profil[0] + 15, 
-			y=point_profil[1], 
-			s="{:.1f}mm".format(value*to_mm),
-			verticalalignment='center',
-			backgroundcolor='white',
-			#bbox=dict(facecolor='white', alpha=0.8),
-			#size=12
-		)
+		pos += step
 		
-		plt.show()
-		plt.pause(0.001)
-		vis1.remove()
-		vis2.remove()
+		if pos > obrys.get_length():
+			pos -= obrys.get_length()
 		
-		pos += STEP_MM * mm_to
+		total += step
+		
+	# value at the end
+	pos = end
+	value = calc_value(pos, obrys, profil, odcinek, to_mm)		
+	print("OUTPUT: {:6.1f} {:6.1f} [mm] {:6.1f} {:6.1f} [u]".format(pos*to_mm, value*to_mm, pos, value))
+	rs.append((pos, value))
+	
+		
+			
 		
 	save_output_svg(rs, oname, to_mm)
 
