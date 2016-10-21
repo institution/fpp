@@ -18,6 +18,7 @@ Note on units: every variable stores value in [u] (unless postfix _mm), use mm_t
 # TODO: print ruler with values to output
 # TODO: thinner line in output
 # TODO: Alert on negative values on the profil?
+# TODO: think of some sanity check on output?
 
 
 
