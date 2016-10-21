@@ -1,3 +1,5 @@
+Futerało Pokrywacz Profilem - Instrukcja Instalacji
+
 ```bash
 # install prerequisites
 sudo apt-get install python3 python3-numpy
