@@ -47,17 +47,21 @@ def adj(A):
 
 def project(point, line):
 	""" Project 'point onto the 'line
+	return -- point, h_line
 	
-	>>> print(project( Vec(0,2), Line( Vec(0,0), Vec(2,2) )))
-	[ 1.  1.]
-	>>> print(project( Vec(5,7), Line( Vec(6,8), Vec(1,8) )))  # regress
-	[ 5.  8.]
+	>>> p,h = project( Vec(0,2), Line( Vec(0,0), Vec(2,2) ))
+	>>> assert (p == Vec(1,1)).all()
+	>>> assert h == 0.5	
+	>>> p,h = project( Vec(5,7), Line( Vec(6,8), Vec(1,8) ))  # regress
+	>>> assert (p == Vec(5,8)).all()
+	>>> assert h == 0.2	
 	"""
 	x0 = line.p0
 	x1 = line.p1
 	v = point - x0
 	s = x1 - x0
-	return (v.dot(s)/s.dot(s)) * s + x0
+	h = v.dot(s)/s.dot(s)
+	return h * s + x0, h
 
 
 def distance(a,b):

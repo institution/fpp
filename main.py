@@ -9,8 +9,9 @@ import math
 
 
 
-TOLERANCE_MM = 0.01
+TOLERANCE_MM = 0.02
 STEP_MM = 0.5
+
 SHOW_GUI = 0
 PRINT_OUTPUT = 0
 
@@ -23,15 +24,18 @@ Note on units: every variable stores value in [u] (unless postfix _mm), use mm_t
 """
 
 """
-# TODO: add scale 1cm x 1cm box to output
-# TODO: print ruler with values to output
-# TODO: thinner line in output? <- set to mm
-# TODO: Alert on negative values on the profil?
-# TODO: think of some sanity check on output? -> check last point == first point
+# TODO: add scale 1cm x 1cm box to output ?
+# TODO: print ruler with values to output ?
+# TODO: thinner line in output <- set to mm ?
 
-# TODO: parametrize step_mm
-# TODO: generate silouette of the cover
-# TODO: log search in intersection <- no need
+
+# TODO: add cover start indicator
+
+# TODO: Alert on negative values on the profil -- check h value in calc_value
+
+# TODO: think of some sanity check on output? -> 
+            check last point == first point   if applicable
+            rectangular test case
 
 """
 
@@ -70,7 +74,55 @@ OUTPUT_TEMPLATE = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 </svg>
 """
 
+
+def get_aabb(ps):
+	min_x = +2**30
+	min_y = +2**30
+	max_x = -2**30
+	max_y = -2**30
+	
+	for x,y in ps:
+		if x > max_x:
+			max_x = x
+		if x < min_x:
+			min_x = x
+			
+		if y > max_y:
+			max_y = y
+		if y < min_y:
+			min_y = y
+			
+	return Vec(min_x,min_y),Vec(max_x,max_y)
+	
+
+def save_cover_svg(ps, oname, to_mm):
+	assert len(ps) > 0
+		
+	a,b = get_aabb(ps)
+	
+	d = b - a
+			
+	vb = (a[0],a[1],d[0],d[1])
+		
+	
+	
+	path =  "M {:.6f},{:.6f} ".format(*ps[0]) + " ".join("{:.6f},{:.6f}".format(*p) for p in ps[1:])
+	
+	with open(oname, 'wb') as f:
+		f.write(
+			OUTPUT_TEMPLATE.format(
+				path = path,
+				width="{:.6f}mm".format(d[0]*to_mm),
+				height="{:.6f}mm".format(d[1]*to_mm),
+				viewbox="{:.6f} {:.6f} {:.6f} {:.6f}".format(*vb)
+			).encode('utf-8')
+		)
+		
+	info("written to {}".format(oname))
+
+
 def save_output_svg(ps, oname, to_mm):
+	
 	assert len(ps) > 0
 	
 	max_y = 0
@@ -102,8 +154,8 @@ def save_output_svg(ps, oname, to_mm):
 				viewbox="{:.6f} {:.6f} {:.6f} {:.6f}".format(*vb)
 			).encode('utf-8')
 		)
-		
-	info("output written to {}".format(oname))
+
+	info("written to {}".format(oname))
 	
 
 
@@ -167,44 +219,63 @@ def show(point_obrys, point_profil, value_mm):
 	vis2.remove()
 
 
+
+
 def calc_value(pos, obrys, profil, odcinek, to_mm):
+	##TODO: Calculate sidewall and cover point
+	##TODO: (height, dist) -- sidewall height, distance along obrys from start point
+	
+	
 	odcinek_dir = odcinek.get_dir()
 	ort_odcinek = Vec(odcinek_dir[1], -odcinek_dir[0])
 	
+	
 	point_obrys = obrys.get_point(pos)
 	
-	point_odcinek = project(point = point_obrys, line = odcinek)
+	point_odcinek, _ = project(point = point_obrys, line = odcinek)
 	
 	orto_line = Line(point_odcinek, point_odcinek + ort_odcinek)
+	orto_unit = orto_line.get_length()
+	
+	cover_x,cover_y = None, None
+	
 	
 	ths = intersect_poly_line(poly = profil, line = orto_line)
 	if len(ths) == 1:
 		t,h = ths[0]
 		point_profil = profil.get_point(t)
+
+		# assert all hs are having the same sign
+		h
+		
+		cover_x = t
+		
 	else:
 		fail('ERROR: unique intersection point of profil and orto_line is undefined')
+		
+	
+	_, cover_h = project(point = point_obrys, line = orto_line)
+	
 			
 	value = distance(point_odcinek, point_profil)
 	
 	if SHOW_GUI:
 		show(point_obrys, point_profil, value * to_mm)
 	
-	return value
+	return value, Vec(cover_x, cover_h * orto_unit)
 
 
 
+import os.path
 
 def main():
 	
-	if len(sys.argv) != 3:
-		print("Usage: fpp input.svg output.svg")
+	if len(sys.argv) != 2:
+		print("Usage: fpp <input.svg>")
 		sys.exit(0)
 	
 	iname = sys.argv[1]
-	oname = sys.argv[2]
-	
-	
-	
+	name = os.path.splitext(iname)[0]
 	
 	info("opening: {!r}".format(iname))
 	
@@ -233,33 +304,45 @@ def main():
 		fail("ERROR: brak obrysu na rysunku")
 		
 	
+	
+	
 	info("obrys : length {:.1f}mm divided into {} segments".format(obrys.get_length()*to_mm, obrys.size()))
 	info("profil: length {:.1f}mm divided into {} segments".format(profil.get_length()*to_mm, profil.size()))
 	
 	
+	info("tolerance: {}mm".format(TOLERANCE_MM))
+	info("step size: {}mm".format(STEP_MM))
+	
+	
 	pos = 0.0
+	
 	
 	cross_poczatek = read_poly_from_svg_path(root, 'start', tolerance)
 	if cross_poczatek != None:
-		info("przecinam poczatek z obrysem")
+		info("setting start point")
 		ths = intersect_poly_poly(obrys, cross_poczatek)
 		if len(ths) != 1:
 			fail("ERROR: poczatek nie przecina obrysu w dokladnie 1 punkcie")
 		else:		
 			t,_ = ths[0]
 			pos = t
+	else:
+		info("start point not found")
 	
 	end = pos
 			
 	cross_koniec = read_poly_from_svg_path(root, 'end', tolerance)
 	if cross_koniec != None:
-		info("przecinam koniec z obrysem")
+		info("setting end point")
 		ths = intersect_poly_poly(obrys, cross_koniec)
 		if len(ths) != 1:
 			warning("WARNING: koniec nie przecina obrysu w dokladnie 1 punkcie")
 		else:
 			t,_ = ths[0]
 			end = t
+	else:
+		info("end point not found")
+	
 
 	if pos < end:
 		delta = end - pos
@@ -293,9 +376,8 @@ def main():
 			
 
 	rs = []
+	rs_cover = []
 	
-	info("tolerance: {}mm".format(TOLERANCE_MM))
-	info("step size: {}mm".format(STEP_MM))
 	
 	info("running now...")
 	
@@ -309,7 +391,7 @@ def main():
 		# print("pos,end = {:.1f},{:.1f}".format(pos*to_mm,end*to_mm))
 		# print("total,delta = {:.1f},{:.1f}".format(total*to_mm,delta*to_mm))
 				
-		value = calc_value(pos, obrys, profil, odcinek, to_mm)	
+		value, cover_p = calc_value(pos, obrys, profil, odcinek, to_mm)	
 		if PRINT_OUTPUT:	
 			print("OUTPUT: {:6.1f} {:6.1f} [mm] {:6.1f} {:6.1f} [u]".format(total*to_mm, value*to_mm, pos, value))
 		
@@ -319,8 +401,8 @@ def main():
 			last_progress = progress
 		
 		
-		
-		rs.append((total, value))
+		rs.append( (total, value) )
+		rs_cover.append( cover_p )
 		
 		
 		
@@ -335,16 +417,18 @@ def main():
 	# value at the end
 	total = delta
 	pos = end
-	value = calc_value(pos, obrys, profil, odcinek, to_mm)
+	value, cover_p = calc_value(pos, obrys, profil, odcinek, to_mm)
 	if PRINT_OUTPUT:
 		print("OUTPUT: {:6.1f} {:6.1f} [mm] {:6.1f} {:6.1f} [u]".format(total*to_mm, value*to_mm, pos, value))
 		
 	rs.append((total, value))
+	rs_cover.append( cover_p )
 	
 	info("{} points generated".format(len(rs)))
 			
 		
-	save_output_svg(rs, oname, to_mm)
+	save_output_svg(rs, "{}-sidewall.svg".format(name), to_mm)
+	save_cover_svg(rs_cover, "{}-cover.svg".format(name), to_mm)
 
 	
 if __name__ == '__main__':
