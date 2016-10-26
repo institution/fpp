@@ -2,7 +2,6 @@ import sys
 from parse_svg import accept_mm, accept_path, accept_viewBox, make_path
 from path import distance, Vec, Bezier1, project, Poly, Line
 from path import intersect_poly_poly, intersect_poly_line, flattern_bezier_list
-import matplotlib.pyplot as plt
 import xml.etree.ElementTree as ET
 from log import fail, info, warning
 from reader import Reader
@@ -10,17 +9,31 @@ import math
 
 
 
+TOLERANCE_MM = 0.01
+STEP_MM = 0.5
+SHOW_GUI = 0
+PRINT_OUTPUT = 0
+
+
+if SHOW_GUI:
+	import matplotlib.pyplot as plt
+
 """
 Note on units: every variable stores value in [u] (unless postfix _mm), use mm_to and to_mm for input, output
 """
 
+"""
 # TODO: add scale 1cm x 1cm box to output
 # TODO: print ruler with values to output
-# TODO: thinner line in output
+# TODO: thinner line in output? <- set to mm
 # TODO: Alert on negative values on the profil?
-# TODO: think of some sanity check on output?
+# TODO: think of some sanity check on output? -> check last point == first point
 
+# TODO: parametrize step_mm
+# TODO: generate silouette of the cover
+# TODO: log search in intersection <- no need
 
+"""
 
 
 #width="{width}"
@@ -80,7 +93,7 @@ def save_output_svg(ps, oname, to_mm):
 	
 	path = "M {:.6f},{:.6f} ".format(min_x,0) + " ".join("{:.6f},{:.6f}".format(*p) for p in ps)
 	
-	with open("output.svg", 'wb') as f:
+	with open(oname, 'wb') as f:
 		f.write(
 			OUTPUT_TEMPLATE.format(
 				path = path,
@@ -89,6 +102,8 @@ def save_output_svg(ps, oname, to_mm):
 				viewbox="{:.6f} {:.6f} {:.6f} {:.6f}".format(*vb)
 			).encode('utf-8')
 		)
+		
+	info("output written to {}".format(oname))
 	
 
 
@@ -130,8 +145,6 @@ def read_poly_from_svg_path(root, name, tolerance):
 
 
 
-TOLERANCE_MM = 0.1
-STEP_MM = 10.0
 
 
 def show(point_obrys, point_profil, value_mm):
@@ -148,6 +161,8 @@ def show(point_obrys, point_profil, value_mm):
 	
 	plt.show()
 	plt.pause(0.001)
+	#plt.waitforbuttonpress(timeout=-1)
+	
 	vis1.remove()
 	vis2.remove()
 
@@ -171,7 +186,8 @@ def calc_value(pos, obrys, profil, odcinek, to_mm):
 			
 	value = distance(point_odcinek, point_profil)
 	
-	show(point_obrys, point_profil, value * to_mm)
+	if SHOW_GUI:
+		show(point_obrys, point_profil, value * to_mm)
 	
 	return value
 
@@ -200,11 +216,11 @@ def main():
 	h_mm = accept_mm(Reader(root.get('height')))
 	to_mm, mm_to = get_conversion_mm(vb, w_mm, h_mm)
 		
-	info("width:  {:.1f} [mm]".format(w_mm))
-	info("height: {:.1f} [mm]".format(h_mm))
+	info("width : {:.1f}mm".format(w_mm))
+	info("height: {:.1f}mm".format(h_mm))
 	
-	info("scale: 1mm is {:.3f}".format(1*mm_to))
-	info("scale: 1 is {:.3f}mm".format(1*to_mm))
+	#info("scale: 1mm is {:.3f}".format(1*mm_to))
+	#info("scale: 1 is {:.3f}mm".format(1*to_mm))
 	
 	tolerance = TOLERANCE_MM * mm_to
 	
@@ -217,10 +233,13 @@ def main():
 		fail("ERROR: brak obrysu na rysunku")
 		
 	
+	info("obrys : length {:.1f}mm divided into {} segments".format(obrys.get_length()*to_mm, obrys.size()))
+	info("profil: length {:.1f}mm divided into {} segments".format(profil.get_length()*to_mm, profil.size()))
+	
 	
 	pos = 0.0
 	
-	cross_poczatek = read_poly_from_svg_path(root, 'poczatek', tolerance)
+	cross_poczatek = read_poly_from_svg_path(root, 'start', tolerance)
 	if cross_poczatek != None:
 		info("przecinam poczatek z obrysem")
 		ths = intersect_poly_poly(obrys, cross_poczatek)
@@ -232,12 +251,12 @@ def main():
 	
 	end = pos
 			
-	cross_koniec = read_poly_from_svg_path(root, 'koniec', tolerance)
+	cross_koniec = read_poly_from_svg_path(root, 'end', tolerance)
 	if cross_koniec != None:
 		info("przecinam koniec z obrysem")
 		ths = intersect_poly_poly(obrys, cross_koniec)
 		if len(ths) != 1:
-			warning("ERROR: koniec nie przecina obrysu w dokladnie 1 punkcie")
+			warning("WARNING: koniec nie przecina obrysu w dokladnie 1 punkcie")
 		else:
 			t,_ = ths[0]
 			end = t
@@ -259,19 +278,28 @@ def main():
 	
 	
 	# setup view
-	plt.ion()
-	plt.show()
-	plt.axis([vb[0], vb[0]+vb[2], vb[1], vb[1]+vb[3]])
+	if SHOW_GUI:
+		plt.ion()
+		plt.show()
+		plt.axis([vb[0], vb[0]+vb[2], vb[1], vb[1]+vb[3]])
+				
+		profil.render(plt)
+		obrys.render(plt)
+		odcinek.render(plt)
+		if cross_poczatek:
+			cross_poczatek.render(plt)
+		if cross_koniec:
+			cross_koniec.render(plt)
 			
-	profil.render(plt)
-	obrys.render(plt)
-	odcinek.render(plt)
-	if cross_poczatek:
-		cross_poczatek.render(plt)
-	if cross_koniec:
-		cross_koniec.render(plt)
 
 	rs = []
+	
+	info("tolerance: {}mm".format(TOLERANCE_MM))
+	info("step size: {}mm".format(STEP_MM))
+	
+	info("running now...")
+	
+	last_progress = 0
 	
 	step = STEP_MM * mm_to
 	total = 0.0
@@ -281,9 +309,20 @@ def main():
 		# print("pos,end = {:.1f},{:.1f}".format(pos*to_mm,end*to_mm))
 		# print("total,delta = {:.1f},{:.1f}".format(total*to_mm,delta*to_mm))
 				
-		value = calc_value(pos, obrys, profil, odcinek, to_mm)		
-		print("OUTPUT: {:6.1f} {:6.1f} [mm] {:6.1f} {:6.1f} [u]".format(total*to_mm, value*to_mm, pos, value))
+		value = calc_value(pos, obrys, profil, odcinek, to_mm)	
+		if PRINT_OUTPUT:	
+			print("OUTPUT: {:6.1f} {:6.1f} [mm] {:6.1f} {:6.1f} [u]".format(total*to_mm, value*to_mm, pos, value))
+		
+		progress = int((total/delta) * 100)
+		if progress % 20 == 0 and progress != last_progress:
+			info("{:5}% done...".format(progress))
+			last_progress = progress
+		
+		
+		
 		rs.append((total, value))
+		
+		
 		
 		
 		pos += step
@@ -296,11 +335,13 @@ def main():
 	# value at the end
 	total = delta
 	pos = end
-	value = calc_value(pos, obrys, profil, odcinek, to_mm)		
-	print("OUTPUT: {:6.1f} {:6.1f} [mm] {:6.1f} {:6.1f} [u]".format(total*to_mm, value*to_mm, pos, value))
+	value = calc_value(pos, obrys, profil, odcinek, to_mm)
+	if PRINT_OUTPUT:
+		print("OUTPUT: {:6.1f} {:6.1f} [mm] {:6.1f} {:6.1f} [u]".format(total*to_mm, value*to_mm, pos, value))
+		
 	rs.append((total, value))
 	
-		
+	info("{} points generated".format(len(rs)))
 			
 		
 	save_output_svg(rs, oname, to_mm)

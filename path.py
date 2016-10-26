@@ -313,7 +313,7 @@ def flattern_bezier3(b3, tolerance):
 	""" Return error and list of vertices 
 	tolerance -- max allowed error
 	"""
-	for n in range(1,64):
+	for n in range(1,16000):
 		err, points = flattern_bezier3_n(b3, n)
 		if err <= tolerance:
 			#info("aproximating curve with {} sections".format(n))
