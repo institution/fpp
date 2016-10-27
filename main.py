@@ -7,7 +7,7 @@ from log import fail, info, warning
 from reader import Reader
 import math
 
-
+VERSION = '0.2.5'
 
 TOLERANCE_MM = 0.02
 STEP_MM = 0.5
@@ -29,6 +29,8 @@ Note on units: every variable stores value in [u] (unless postfix _mm), use mm_t
 # TODO: print ruler with values to output ?
 # TODO: thinner line in output <- set to mm ?
 
+
+# TODO: set STEP size show output
 
 # TODO: add cover start indicator
 
@@ -277,6 +279,8 @@ import os.path
 
 def main():
 	
+	info("FPP version: {}".format(VERSION))
+	
 	if len(sys.argv) != 2:
 		print("Usage: fpp <input.svg>")
 		sys.exit(0)
@@ -328,13 +332,14 @@ def main():
 	if cross_poczatek != None:
 		ths = intersect_poly_poly(obrys, cross_poczatek)
 		if len(ths) != 1:
-			fail("ERROR: start nie przecina obrysu w dokladnie 1 punkcie")
+			fail("ERROR: start point not set")
 		else:		
-			info("setting start point")
+			
 			t,_ = ths[0]
 			pos = t
+			info("start: at {:.1f}mm".format(pos * to_mm))
 	else:
-		info("start point not found")
+		fail("ERROR: start point not set")
 	
 	end = pos
 			
@@ -343,13 +348,13 @@ def main():
 		
 		ths = intersect_poly_poly(obrys, cross_koniec)
 		if len(ths) != 1:
-			warning("WARNING: end nie przecina obrysu w dokladnie 1 punkcie")
+			info("end: present but not set")
 		else:
-			info("setting end point")
 			t,_ = ths[0]
 			end = t
+			info("end: at {:.1f}mm".format(end * to_mm))
 	else:
-		info("end point not found")
+		info("end: not set")
 	
 
 	if pos < end:
