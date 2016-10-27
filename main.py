@@ -15,6 +15,7 @@ STEP_MM = 0.5
 SHOW_GUI = 0
 PRINT_OUTPUT = 0
 
+LINE_THICKNESS_MM = 0.25
 
 if SHOW_GUI:
 	import matplotlib.pyplot as plt
@@ -68,9 +69,9 @@ OUTPUT_TEMPLATE = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
     </rdf:RDF>
   </metadata>  
   <path
-     id="sciana"
+     id="{ident}"
      d="{path}"
-     style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;image-rendering:auto" />
+     style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:{line_thickness_mm}mm;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;image-rendering:auto" />
 </svg>
 """
 
@@ -95,33 +96,46 @@ def get_aabb(ps):
 	return Vec(min_x,min_y),Vec(max_x,max_y)
 	
 
-def save_cover_svg(ps, oname, to_mm):
-	assert len(ps) > 0
-		
-	a,b = get_aabb(ps)
-	
-	d = b - a
-			
-	vb = (a[0],a[1],d[0],d[1])
-		
-	
-	
-	path =  "M {:.6f},{:.6f} ".format(*ps[0]) + " ".join("{:.6f},{:.6f}".format(*p) for p in ps[1:])
+def write_shape_to_svg(oname, ident, points, viewbox, to_mm):
+	"""
+	oname -- svg filename
+	points -- path points
+	viewbox -- (x,y,dx,dy)
+	to_mm -- conversion ratio	
+	"""
+
+	x,y,dx,dy = viewbox
+	path =  "M " + " ".join("{:.6f},{:.6f}".format(*p) for p in points)
 	
 	with open(oname, 'wb') as f:
 		f.write(
 			OUTPUT_TEMPLATE.format(
 				path = path,
-				width="{:.6f}mm".format(d[0]*to_mm),
-				height="{:.6f}mm".format(d[1]*to_mm),
-				viewbox="{:.6f} {:.6f} {:.6f} {:.6f}".format(*vb)
+				width = "{:.6f}mm".format(dx * to_mm),
+				height = "{:.6f}mm".format(dy * to_mm),
+				viewbox = "{:.6f} {:.6f} {:.6f} {:.6f}".format(*viewbox),
+				ident = ident,
+				line_thickness_mm = LINE_THICKNESS_MM,
 			).encode('utf-8')
 		)
 		
 	info("written to {}".format(oname))
 
 
-def save_output_svg(ps, oname, to_mm):
+
+def save_top_svg(ps, oname, mar, to_mm):
+	assert len(ps) > 0
+		
+	a,b = get_aabb(ps)
+	
+	d = b - a
+			
+	vb = (a[0]-mar,a[1]-mar,d[0]+2*mar,d[1]+2*mar)
+	
+	write_shape_to_svg(oname = oname, ident='top', points = ps, viewbox = vb, to_mm = to_mm)
+	
+
+def save_side_svg(ps, oname, mar, to_mm):
 	
 	assert len(ps) > 0
 	
@@ -136,26 +150,15 @@ def save_output_svg(ps, oname, to_mm):
 	w = max_x - min_x
 	h = max_y
 				
-	vb = (min_x,0,w,h)
-	
 	
 	
 	ps.append((max_x,0))
 	ps.append((min_x,0))
+	ps.append(ps[0])      # close
 	
-	path = "M {:.6f},{:.6f} ".format(min_x,0) + " ".join("{:.6f},{:.6f}".format(*p) for p in ps)
+	vb = (min_x-mar,0-mar,w+2*mar,h+2*mar)
 	
-	with open(oname, 'wb') as f:
-		f.write(
-			OUTPUT_TEMPLATE.format(
-				path = path,
-				width="{:.6f}mm".format(w*to_mm),
-				height="{:.6f}mm".format(h*to_mm),
-				viewbox="{:.6f} {:.6f} {:.6f} {:.6f}".format(*vb)
-			).encode('utf-8')
-		)
-
-	info("written to {}".format(oname))
+	write_shape_to_svg(oname = oname, ident='side', points = ps, viewbox = vb, to_mm = to_mm)
 	
 
 
@@ -241,6 +244,10 @@ def calc_value(pos, obrys, profil, odcinek, to_mm):
 	
 	
 	ths = intersect_poly_line(poly = profil, line = orto_line)
+	
+	#print(profil.xs, orto_line.p0, orto_line.p1)
+	
+	#print(ths)
 	if len(ths) == 1:
 		t,h = ths[0]
 		point_profil = profil.get_point(t)
@@ -319,11 +326,11 @@ def main():
 	
 	cross_poczatek = read_poly_from_svg_path(root, 'start', tolerance)
 	if cross_poczatek != None:
-		info("setting start point")
 		ths = intersect_poly_poly(obrys, cross_poczatek)
 		if len(ths) != 1:
-			fail("ERROR: poczatek nie przecina obrysu w dokladnie 1 punkcie")
+			fail("ERROR: start nie przecina obrysu w dokladnie 1 punkcie")
 		else:		
+			info("setting start point")
 			t,_ = ths[0]
 			pos = t
 	else:
@@ -333,11 +340,12 @@ def main():
 			
 	cross_koniec = read_poly_from_svg_path(root, 'end', tolerance)
 	if cross_koniec != None:
-		info("setting end point")
+		
 		ths = intersect_poly_poly(obrys, cross_koniec)
 		if len(ths) != 1:
-			warning("WARNING: koniec nie przecina obrysu w dokladnie 1 punkcie")
+			warning("WARNING: end nie przecina obrysu w dokladnie 1 punkcie")
 		else:
+			info("setting end point")
 			t,_ = ths[0]
 			end = t
 	else:
@@ -364,7 +372,7 @@ def main():
 	if SHOW_GUI:
 		plt.ion()
 		plt.show()
-		plt.axis([vb[0], vb[0]+vb[2], vb[1], vb[1]+vb[3]])
+		#plt.axis([vb[0], vb[0]+vb[2], vb[1], vb[1]+vb[3]])
 				
 		profil.render(plt)
 		obrys.render(plt)
@@ -427,8 +435,8 @@ def main():
 	info("{} points generated".format(len(rs)))
 			
 		
-	save_output_svg(rs, "{}-sidewall.svg".format(name), to_mm)
-	save_cover_svg(rs_cover, "{}-cover.svg".format(name), to_mm)
+	save_side_svg(rs, "{}-side.svg".format(name), 10*mm_to, to_mm)
+	save_top_svg(rs_cover, "{}-top.svg".format(name), 10*mm_to, to_mm)
 
 	
 if __name__ == '__main__':

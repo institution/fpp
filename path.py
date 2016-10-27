@@ -95,6 +95,10 @@ class Poly:
 		return self.xs[i]
 	
 	def get_section_length(self, i):
+		"""
+		>>> p = Poly([Vec(0,0), Vec(-3,-4)])
+		>>> assert p.get_section_length(0) == 5
+		"""
 		return self.ls[i]
 		
 	def join(self, poly):
@@ -351,37 +355,46 @@ def intersect_line_line(x1,x2, y1,y2):
 		
 	t,h = (adj(A).dot(B))/d
 	
-	return [(t,h)]
+	return [(round(t,12),round(h,12))]
 	
 	
 	
 def intersect_poly_poly(a,b):	
 	"""
 	return -- list of (t_len, h_len)
+	
+	>>> a = Poly([Vec(2,0), Vec(0,0), Vec(0,2)])
+	>>> b = Poly([Vec(-1,-1), Vec(1,1)])
+	>>> r = intersect_poly_poly(a,b)
+	>>> assert r == [(2.0, math.sqrt(2))], r
 	"""
 	assert type(a) == Poly and type(b) == Poly
 	
 	rs = []	
 	
 	xp = 0.0
-	yp = 0.0
+	
 	for i in range(a.size()):
 	
 		x1 = a.get_vertex(i)
 		x2 = a.get_vertex(i+1)
 		xl = a.get_section_length(i)
 	
+		yp = 0.0
 		for j in range(b.size()):
 			
 			y1 = b.get_vertex(j)
 			y2 = b.get_vertex(j+1)
-			yl = a.get_section_length(j)
+			yl = b.get_section_length(j)
 			
 			ths = intersect_line_line(x1,x2, y1,y2)
 			if ths:
 				t,h = ths[0]
-				if 0 <= t <= 1 and 0 <= h <= 1:				
-					rs.append((xp + t*xl, yp + h*yl))
+				if 0 <= t <= 1 and 0 <= h <= 1:
+					r = (xp + t*xl, yp + h*yl)
+					
+					if len(rs) == 0 or (rs and rs[-1] != r):
+						rs.append(r)
 			
 			yp += yl
 			
@@ -418,10 +431,14 @@ def intersect_poly_line(poly, line):
 		xl = poly.get_section_length(i)
 	
 		ths = intersect_line_line(x1,x2, y1,y2)
+		
 		if ths:
 			t,h = ths[0]
-			if 0 <= t <= 1:
-				rs.append((xp + t*xl, h))
+			if 0.0 <= t <= 1.0:
+			
+				r = (xp + t*xl, h)
+				if len(rs) == 0 or (rs and rs[-1] != r):
+					rs.append(r)
 		
 		xp += xl
 	
