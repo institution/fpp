@@ -9,13 +9,13 @@ import math
 
 VERSION = '0.2.5'
 
-TOLERANCE_MM = 0.02
+TOLERANCE_MM = 0.1
 STEP_MM = 0.5
 
 SHOW_GUI = 0
 PRINT_OUTPUT = 0
 
-LINE_THICKNESS_MM = 0.25
+LINE_THICKNESS_MM = 0.18
 
 if SHOW_GUI:
 	import matplotlib.pyplot as plt
@@ -25,14 +25,17 @@ Note on units: every variable stores value in [u] (unless postfix _mm), use mm_t
 """
 
 """
+
+TODO: opcje od do - output naming od-do
+TODO: top siatka
+
+TODO: print ruler with values to output ?
+TODO: set STEP size show output ^
+
+
 # TODO: add scale 1cm x 1cm box to output ?
-# TODO: print ruler with values to output ?
 # TODO: thinner line in output <- set to mm ?
-
-
-# TODO: set STEP size show output
-
-# TODO: add cover start indicator
+# TODO: add cover start indicator?
 
 # TODO: Alert on negative values on the profil -- check h value in calc_value
 
@@ -281,12 +284,18 @@ def main():
 	
 	info("FPP version: {}".format(VERSION))
 	
-	if len(sys.argv) != 2:
-		print("Usage: fpp <input.svg>")
+	if len(sys.argv) not in [3,4]:
+		info("usage: fpp <input.svg> <start-label> [end-label]")
 		sys.exit(0)
 	
 	iname = sys.argv[1]
 	name = os.path.splitext(iname)[0]
+	
+	start_label = sys.argv[2]
+	if len(sys.argv) == 4:
+		end_label = sys.argv[3]
+	else:
+		end_label = 'szduiog30874g087h80bevr7n7a804wbg'
 	
 	info("opening: {!r}".format(iname))
 	
@@ -328,7 +337,7 @@ def main():
 	pos = 0.0
 	
 	
-	cross_poczatek = read_poly_from_svg_path(root, 'start', tolerance)
+	cross_poczatek = read_poly_from_svg_path(root, start_label, tolerance)
 	if cross_poczatek != None:
 		ths = intersect_poly_poly(obrys, cross_poczatek)
 		if len(ths) != 1:
@@ -343,7 +352,7 @@ def main():
 	
 	end = pos
 			
-	cross_koniec = read_poly_from_svg_path(root, 'end', tolerance)
+	cross_koniec = read_poly_from_svg_path(root, end_label, tolerance)
 	if cross_koniec != None:
 		
 		ths = intersect_poly_poly(obrys, cross_koniec)
@@ -392,6 +401,7 @@ def main():
 	rs_cover = []
 	
 	
+	info("output length: {:.1f}mm".format(delta*to_mm))
 	info("running now...")
 	
 	last_progress = 0
@@ -417,15 +427,14 @@ def main():
 		rs.append( (total, value) )
 		rs_cover.append( cover_p )
 		
-		
-		
-		
 		pos += step
 		
 		if pos > obrys.get_length():
 			pos -= obrys.get_length()
 		
 		total += step
+		
+		
 		
 	# value at the end
 	total = delta
