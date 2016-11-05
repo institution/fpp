@@ -7,7 +7,7 @@ from log import fail, info, warning
 from reader import Reader
 import math
 
-VERSION = '0.2.5'
+VERSION = '0.3.0'
 
 TOLERANCE_MM = 0.1
 STEP_MM = 0.5
@@ -26,7 +26,6 @@ Note on units: every variable stores value in [u] (unless postfix _mm), use mm_t
 
 """
 
-TODO: opcje od do - output naming od-do
 TODO: top siatka
 
 TODO: print ruler with values to output ?
@@ -284,18 +283,15 @@ def main():
 	
 	info("FPP version: {}".format(VERSION))
 	
-	if len(sys.argv) not in [3,4]:
-		info("usage: fpp <input.svg> <start-label> [end-label]")
+	if len(sys.argv) not in [4]:
+		info("usage: fpp <input.svg> <start-label> <end-label>")
 		sys.exit(0)
 	
 	iname = sys.argv[1]
 	name = os.path.splitext(iname)[0]
 	
 	start_label = sys.argv[2]
-	if len(sys.argv) == 4:
-		end_label = sys.argv[3]
-	else:
-		end_label = 'szduiog30874g087h80bevr7n7a804wbg'
+	end_label = sys.argv[3]
 	
 	info("opening: {!r}".format(iname))
 	
@@ -350,20 +346,23 @@ def main():
 	else:
 		fail("ERROR: start point not set")
 	
-	end = pos
-			
-	cross_koniec = read_poly_from_svg_path(root, end_label, tolerance)
-	if cross_koniec != None:
-		
-		ths = intersect_poly_poly(obrys, cross_koniec)
-		if len(ths) != 1:
-			info("end: present but not set")
-		else:
-			t,_ = ths[0]
-			end = t
-			info("end: at {:.1f}mm".format(end * to_mm))
+	
+	if end_label == start_label:
+		end = pos
+		info("end: at the beggining")
 	else:
-		info("end: not set")
+		cross_koniec = read_poly_from_svg_path(root, end_label, tolerance)
+		if cross_koniec != None:
+			
+			ths = intersect_poly_poly(obrys, cross_koniec)
+			if len(ths) != 1:
+				info("end: present but not set")
+			else:
+				t,_ = ths[0]
+				end = t
+				info("end: at {:.1f}mm".format(end * to_mm))
+		else:
+			fail("ERROR: end point not set")
 	
 
 	if pos < end:
@@ -449,8 +448,8 @@ def main():
 	info("{} points generated".format(len(rs)))
 			
 		
-	save_side_svg(rs, "{}-side.svg".format(name), 10*mm_to, to_mm)
-	save_top_svg(rs_cover, "{}-top.svg".format(name), 10*mm_to, to_mm)
+	save_side_svg(rs, "{}-{}-{}-side.svg".format(name,start_label,end_label), 10*mm_to, to_mm)
+	save_top_svg(rs_cover, "{}-{}-{}-top.svg".format(name,start_label,end_label), 10*mm_to, to_mm)
 
 	
 if __name__ == '__main__':
