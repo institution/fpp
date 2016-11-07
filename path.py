@@ -244,6 +244,8 @@ class Bezier3:
 	def __init__(self, p0, p1, p2, p3):
 		""" Defined by control points """		
 		self.mt = Mat(None, [p0, 3 * p1, 3 * p2, p3])
+		self._p0 = p0
+		self._p3 = p3
 				
 	def get_point(self, t):
 		""" Point at t"""
@@ -251,15 +253,20 @@ class Bezier3:
 		v = Vec(h*h*h, h*h*t, h*t*t, t*t*t)		
 		p = self.mt.dot(v)
 		return p
+		
+	def __str__(self):
+		return "Bezier3({},-,-,{})".format(self._p0, self._p3)
 	
 
 
-def flattern_bezier_list(parts, tolerance):
+def flattern_bezier_list(parts, tolerance, name):
 	""" Return error and list of vertices
+	name -- name of the path (for error msgs)
 	"""
+	
 	max_err = 0.0
 	points = []		
-	for part in parts:
+	for i,part in enumerate(parts):
 		if type(part) == Bezier3:
 			err, ps = flattern_bezier3(part, tolerance)
 			max_err = max(max_err, err)
@@ -272,7 +279,8 @@ def flattern_bezier_list(parts, tolerance):
 			
 		
 		if points:
-			assert (points[-1] == ps[0]).all()
+			if not (points[-1] == ps[0]).all():
+				fail("ERROR: in path '{}': last point of segment {} is diffrent from first point of segment {}".format(name, i-1, i))
 			points.extend(ps[1:])
 		else:
 			assert len(ps[0]) == 2

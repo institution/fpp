@@ -7,7 +7,7 @@ from log import fail, info, warning
 from reader import Reader
 import math
 
-VERSION = '0.3.0'
+VERSION = '0.3.1'
 
 TOLERANCE_MM = 0.1
 STEP_MM = 0.5
@@ -192,7 +192,7 @@ def read_poly_from_svg_path(root, name, tolerance):
 	x = root.find(".//*[@id='"+name+"']")
 	if x != None:
 		beziers = make_path(accept_path(Reader(x.get('d'))))
-		err, vertices = flattern_bezier_list(beziers, tolerance)		
+		err, vertices = flattern_bezier_list(beziers, tolerance, name)
 		return Poly(vertices)
 		
 	else:		
