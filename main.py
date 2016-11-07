@@ -7,7 +7,7 @@ from log import fail, info, warning
 from reader import Reader
 import math
 
-VERSION = '0.3.1'
+VERSION = '0.4.0'
 
 TOLERANCE_MM = 0.1
 STEP_MM = 0.5
@@ -279,19 +279,28 @@ def calc_value(pos, obrys, profil, odcinek, to_mm):
 
 import os.path
 
+
+
 def main():
 	
 	info("FPP version: {}".format(VERSION))
 	
-	if len(sys.argv) not in [4]:
-		info("usage: fpp <input.svg> <start-label> <end-label>")
-		sys.exit(0)
+	if len(sys.argv) < 4:
+		info("usage: fpp <input.svg> <label1> <label2> [label3] ...")
+		sys.exit(0)	
 	
 	iname = sys.argv[1]
-	name = os.path.splitext(iname)[0]
 	
-	start_label = sys.argv[2]
-	end_label = sys.argv[3]
+	a = sys.argv[2]
+	for x in sys.argv[3:]:
+		b = x
+		main_segment(iname, a, b)
+		a = b
+	
+	
+def main_segment(iname, start_label, end_label):
+	
+	name = os.path.splitext(iname)[0]
 	
 	info("opening: {!r}".format(iname))
 	

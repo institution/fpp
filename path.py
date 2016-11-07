@@ -280,7 +280,7 @@ def flattern_bezier_list(parts, tolerance, name):
 		
 		if points:
 			if not (points[-1] == ps[0]).all():
-				fail("ERROR: in path '{}': last point of segment {} is diffrent from first point of segment {}".format(name, i-1, i))
+				fail("ERROR: in path '{}': last point of segment {} is diffrent from first point of segment {}".format(name, i, i+1))
 			points.extend(ps[1:])
 		else:
 			assert len(ps[0]) == 2
